@@ -17,15 +17,36 @@ const perks = [
 
 export default function Volunteer() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", interest: "", message: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.phone) {
-      toast.error("Please fill in name, email and phone");
+    if (!form.name || !form.email || !form.phone || !form.interest) {
+      toast.error("Please fill in name, email, phone and interest");
       return;
     }
-    toast.success(`Thank you ${form.name}! We'll reach out to you soon.`);
-    setForm({ name: "", email: "", phone: "", interest: "", message: "" });
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/volunteer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to submit volunteer request");
+      }
+
+      toast.success(`Thank you ${form.name}! We'll reach out to you soon.`);
+      setForm({ name: "", email: "", phone: "", interest: "", message: "" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to submit volunteer request";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -80,14 +101,14 @@ export default function Volunteer() {
                   </div>
                   <div>
                     <Label htmlFor="v-interest">Area of interest</Label>
-                    <Input id="v-interest" placeholder="e.g. Healthcare, Education, Animal Welfare" value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })} className="mt-1.5" />
+                    <Input id="v-interest" placeholder="e.g. Healthcare, Education, Community" value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })} className="mt-1.5" required />
                   </div>
                   <div>
                     <Label htmlFor="v-msg">Why do you want to join? (optional)</Label>
                     <Textarea id="v-msg" rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="mt-1.5" />
                   </div>
-                  <Button type="submit" size="lg" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold">
-                    Sign Up to Volunteer
+                  <Button type="submit" size="lg" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold" disabled={isSubmitting}>
+                    {isSubmitting ? "Submitting..." : "Sign Up to Volunteer"}
                   </Button>
                 </form>
               </CardContent>

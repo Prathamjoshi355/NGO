@@ -53,6 +53,16 @@ export default function Footer() {
                   Impact
                 </Link>
               </li>
+              <li>
+                <Link to="/events" className="hover:text-orange-400 transition">
+                  Events
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="hover:text-orange-400 transition">
+                  Blog
+                </Link>
+              </li>
             </ul>
           </div>
 

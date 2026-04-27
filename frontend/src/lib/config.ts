@@ -8,7 +8,7 @@ let configLoading = true;
 const defaultConfig: RuntimeConfig = {
   // In production, prefer same-origin instead of localhost so a Vercel
   // deploy can still work before a separate API URL is configured.
-  API_BASE_URL: import.meta.env.PROD ? '/' : 'http://127.0.0.1:8000',
+  API_BASE_URL: import.meta.env.PROD ? '/api' : '/api',
 };
 
 export async function loadRuntimeConfig(): Promise<void> {

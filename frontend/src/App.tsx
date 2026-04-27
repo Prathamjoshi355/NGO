@@ -10,13 +10,29 @@ import Impact from './pages/Impact';
 import Donate from './pages/Donate';
 import Volunteer from './pages/Volunteer';
 import Gallery from './pages/Gallery';
+import Events from './pages/Events';
 import Contact from './pages/Contact';
 import AuthCallback from './pages/AuthCallback';
 import AuthError from './pages/AuthError';
+import { adminRoutes } from './admin/routes';
 // MODULE_IMPORTS_START
 // MODULE_IMPORTS_END
 
 const queryClient = new QueryClient();
+
+const renderAdminRoutes = (routes) =>
+  routes.map((route) => (
+    <Route key={route.path || 'admin-index'} path={route.path} element={route.element}>
+      {route.children?.map((child) => (
+        <Route
+          key={child.path || 'index'}
+          index={child.index}
+          path={child.path}
+          element={child.element}
+        />
+      ))}
+    </Route>
+  ));
 
 const AppRoutes = () => (
   <Routes>
@@ -26,11 +42,13 @@ const AppRoutes = () => (
     <Route path="/impact" element={<Impact />} />
     <Route path="/donate" element={<Donate />} />
     <Route path="/volunteer" element={<Volunteer />} />
+    <Route path="/events" element={<Events />} />
     <Route path="/gallery" element={<Gallery />} />
     <Route path="/contact" element={<Contact />} />
-    {/* <Route path="/blog/*" element={<BlogRoutes />} /> */}
+    <Route path="/blog/*" element={<BlogRoutes />} />
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />
+    {renderAdminRoutes(adminRoutes)}
     {/* MODULE_ROUTES_START */}
     {/* MODULE_ROUTES_END */}
   </Routes>

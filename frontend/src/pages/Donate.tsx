@@ -7,6 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Shield, Heart, Check } from "lucide-react";
 import { toast } from "sonner";
 
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
 const tiers = [
   { amount: 500, label: "Supports basic needs" },
   { amount: 1000, label: "Helps in community activities" },
@@ -18,8 +24,24 @@ export default function Donate() {
   const [custom, setCustom] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleDonate = (e: React.FormEvent) => {
+  const loadRazorpay = () =>
+    new Promise<boolean>((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+
+  const handleDonate = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = custom ? Number(custom) : selected;
     if (!amount || amount < 1) {
@@ -30,7 +52,88 @@ export default function Donate() {
       toast.error("Please fill in your name and email");
       return;
     }
-    toast.success(`Thank you ${name}! Your Rs ${amount} intent is noted. Our team will reach out with payment details.`);
+
+    setIsSubmitting(true);
+    try {
+      const scriptLoaded = await loadRazorpay();
+      if (!scriptLoaded || !window.Razorpay) {
+        throw new Error("Razorpay checkout could not load. Please try again.");
+      }
+
+      const orderResponse = await fetch("/api/donate/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, amount, message }),
+      });
+
+      const order = await orderResponse.json();
+      if (!orderResponse.ok) {
+        throw new Error(order.message || "Unable to start payment");
+      }
+
+      const checkout = new window.Razorpay({
+        key: order.key,
+        amount: order.amount,
+        currency: "INR",
+        name: "Spreading Smiles",
+        description: `Donation of Rs ${amount}`,
+        order_id: order.orderId,
+        prefill: {
+          name,
+          email,
+        },
+        notes: {
+          message,
+        },
+        theme: {
+          color: "#ea580c",
+        },
+        handler: async (payment: any) => {
+          try {
+            const verifyResponse = await fetch("/api/donate/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...payment,
+                name,
+                email,
+                amount,
+                message,
+              }),
+            });
+
+            const verified = await verifyResponse.json();
+            if (!verifyResponse.ok) {
+              throw new Error(verified.message || "Payment verification failed");
+            }
+
+            toast.success(`Thank you ${name}! Payment verified and donation recorded.`);
+            setCustom("");
+            setSelected(1000);
+            setName("");
+            setEmail("");
+            setMessage("");
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Payment verification failed";
+            toast.error(errorMessage);
+          } finally {
+            setIsSubmitting(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.error("Payment was cancelled. Donation was not recorded.");
+            setIsSubmitting(false);
+          },
+        },
+      });
+
+      checkout.open();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to submit donation";
+      toast.error(errorMessage);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -97,9 +200,14 @@ export default function Donate() {
                     </div>
                   </div>
 
-                  <Button type="submit" size="lg" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold">
+                  <div className="mb-6">
+                    <Label htmlFor="message" className="text-sm font-medium text-slate-700">Message (optional)</Label>
+                    <Input id="message" value={message} onChange={(e) => setMessage(e.target.value)} className="mt-1.5" placeholder="Any note for our team" />
+                  </div>
+
+                  <Button type="submit" size="lg" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold" disabled={isSubmitting}>
                     <Heart className="w-4 h-4 mr-2 fill-white" />
-                    Donate Rs {custom || selected}
+                    {isSubmitting ? "Opening payment..." : `Donate Rs ${custom || selected}`}
                   </Button>
 
                   <div className="flex items-center justify-center gap-2 mt-4 text-xs text-slate-500">

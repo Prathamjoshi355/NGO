@@ -1,170 +1,95 @@
-import { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import BlogArticleLayout from '@/components/blog/BlogArticleLayout';
-import MarkdownArticle from '@/components/blog/MarkdownArticle';
-import { getBlogPost, getPostSeoMeta } from '@/lib/blog';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import Layout from '@/components/Layout';
+import { CalendarDays, User } from 'lucide-react';
 
-function getSlugFromPathname(pathname: string) {
-  return pathname
-    .replace(/^\/blog\/?/, '')
-    .replace(/\/+$/, '')
-    .replace(/^\/+/, '');
-}
+type Blog = {
+  title: string;
+  excerpt?: string;
+  content: string;
+  coverImage: string;
+  author?: string;
+  createdAt: string;
+};
 
-function ensureMetaTag(
-  attribute: 'name' | 'property',
-  value: string,
-) {
-  let tag = document.head.querySelector(
-    `meta[${attribute}="${value}"]`,
-  ) as HTMLMetaElement | null;
-
-  if (!tag) {
-    tag = document.createElement('meta');
-    tag.setAttribute(attribute, value);
-    document.head.appendChild(tag);
-  }
-
-  return tag;
-}
-
-function getCurrentPageUrl(pathname: string) {
-  if (typeof window === 'undefined') {
-    return undefined;
-  }
-
-  return `${window.location.origin}${pathname}`;
-}
-
-const BlogPostPage = () => {
-  const location = useLocation();
-  const slug = getSlugFromPathname(location.pathname);
-  const post = slug === '*' ? null : getBlogPost(slug);
+export default function BlogPostPage() {
+  const { slug } = useParams();
+  const [blog, setBlog] = useState<Blog | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!post) {
-      return;
-    }
+    const fetchBlog = async () => {
+      try {
+        const response = await fetch(`/api/blog/${slug}`);
+        if (!response.ok) return;
 
-    const seoMeta = getPostSeoMeta(post);
-    const resolvedUrl = seoMeta.url ?? getCurrentPageUrl(location.pathname);
-    const previousTitle = document.title;
-    const previousLang = document.documentElement.lang;
-
-    const metaDefinitions = [
-      { attribute: 'name' as const, key: 'description', value: seoMeta.description },
-      { attribute: 'name' as const, key: 'keywords', value: seoMeta.keywords },
-      { attribute: 'property' as const, key: 'og:url', value: resolvedUrl },
-      { attribute: 'property' as const, key: 'og:site_name', value: seoMeta.siteName },
-      { attribute: 'property' as const, key: 'og:title', value: seoMeta.ogTitle },
-      {
-        attribute: 'property' as const,
-        key: 'og:description',
-        value: seoMeta.ogDescription,
-      },
-      { attribute: 'property' as const, key: 'og:image', value: seoMeta.ogImage },
-      {
-        attribute: 'property' as const,
-        key: 'og:image:alt',
-        value: seoMeta.ogImageAlt,
-      },
-      { attribute: 'property' as const, key: 'og:type', value: seoMeta.ogType },
-      {
-        attribute: 'property' as const,
-        key: 'article:published_time',
-        value: seoMeta.publishedTime,
-      },
-      { attribute: 'name' as const, key: 'twitter:card', value: seoMeta.twitterCard },
-      { attribute: 'name' as const, key: 'twitter:site', value: seoMeta.twitterSite },
-      {
-        attribute: 'name' as const,
-        key: 'twitter:creator',
-        value: seoMeta.twitterCreator,
-      },
-      {
-        attribute: 'name' as const,
-        key: 'twitter:title',
-        value: seoMeta.twitterTitle,
-      },
-      {
-        attribute: 'name' as const,
-        key: 'twitter:description',
-        value: seoMeta.twitterDescription,
-      },
-      {
-        attribute: 'name' as const,
-        key: 'twitter:image',
-        value: seoMeta.twitterImage,
-      },
-      {
-        attribute: 'name' as const,
-        key: 'twitter:image:alt',
-        value: seoMeta.twitterImageAlt,
-      },
-    ];
-
-    const previousValues = metaDefinitions.map(({ attribute, key, value }) => {
-      if (!value) {
-        return null;
+        const result = await response.json();
+        setBlog(result.data || null);
+      } catch (error) {
+        console.error('Error loading blog:', error);
+      } finally {
+        setLoading(false);
       }
-
-      const tag = ensureMetaTag(attribute, key);
-      const previousContent = tag.content;
-      tag.content = value;
-      return { tag, previousContent };
-    });
-
-    document.title = seoMeta.title;
-    if (seoMeta.lang) {
-      document.documentElement.lang = seoMeta.lang;
-    }
-
-    const articleTagEntries = (seoMeta.tags ?? []).map((tag) => {
-      const metaTag = document.createElement('meta');
-      metaTag.setAttribute('property', 'article:tag');
-      metaTag.content = tag;
-      document.head.appendChild(metaTag);
-      return metaTag;
-    });
-
-    return () => {
-      document.title = previousTitle;
-      document.documentElement.lang = previousLang;
-      articleTagEntries.forEach((tag) => tag.remove());
-      previousValues.forEach((entry) => {
-        if (!entry) {
-          return;
-        }
-        entry.tag.content = entry.previousContent;
-      });
     };
-  }, [post, location.pathname]);
 
-  if (slug === '*') {
-    return <Navigate to="/blog/" replace />;
+    fetchBlog();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="py-20 text-center text-slate-600">Loading blog...</div>
+      </Layout>
+    );
   }
 
-  if (!post) {
+  if (!blog) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 p-6 text-center">
-        <div className="space-y-6 max-w-md">
-          <div className="space-y-4">
-            <h1 className="text-7xl font-bold text-gray-300">404</h1>
-            <h2 className="text-2xl font-bold text-gray-800">Page Not Found</h2>
-            <p className="text-base text-muted-foreground">
-              Sorry, the blog post you are looking for does not exist or has been removed.
-            </p>
-          </div>
+      <Layout>
+        <div className="py-20 text-center">
+          <h1 className="text-3xl font-bold text-slate-900 mb-3">Blog not found</h1>
+          <Link to="/blog" className="text-orange-600 font-semibold">
+            Back to Blog
+          </Link>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <BlogArticleLayout title={post.title} description={post.description}>
-      <MarkdownArticle markdown={post.markdown} />
-    </BlogArticleLayout>
-  );
-};
+    <Layout>
+      <article>
+        <section className="bg-gradient-to-br from-orange-50 to-amber-50 py-12 md:py-16">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <Link to="/blog" className="text-sm font-semibold text-orange-600 hover:text-orange-700">
+              Back to Blog
+            </Link>
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mt-4 mb-5">
+              {blog.title}
+            </h1>
+            <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+              <span className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-orange-600" />
+                {new Date(blog.createdAt).toLocaleDateString()}
+              </span>
+              <span className="flex items-center gap-2">
+                <User className="w-4 h-4 text-orange-600" />
+                {blog.author || 'NGO'}
+              </span>
+            </div>
+          </div>
+        </section>
 
-export default BlogPostPage;
+        <section className="py-12">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <img src={blog.coverImage} alt={blog.title} className="w-full rounded-xl mb-8 object-cover max-h-[520px]" />
+            {blog.excerpt && <p className="text-xl text-slate-600 leading-relaxed mb-8">{blog.excerpt}</p>}
+            <div className="whitespace-pre-line text-slate-700 leading-8 text-lg">
+              {blog.content}
+            </div>
+          </div>
+        </section>
+      </article>
+    </Layout>
+  );
+}

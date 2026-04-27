@@ -1,71 +1,98 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { blogPosts, getBlogRoute } from '@/lib/blog';
+import Layout from '@/components/Layout';
+import { Card, CardContent } from '@/components/ui/card';
+import { CalendarDays, User } from 'lucide-react';
 
-const BlogIndexPage = () => (
-  <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.14),_transparent_36%),linear-gradient(180deg,_#f8fafc_0%,_#eff6ff_100%)] text-slate-900">
-    <section className="mx-auto max-w-5xl px-6 py-16 sm:py-20">
-      <div className="max-w-3xl space-y-5">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-700">
-          Blog Starter
-        </p>
-        <h1 className="font-serif text-4xl leading-tight text-slate-950 sm:text-5xl">
-          Start with a blog section that is ready to grow with your SEO site
-        </h1>
-        <p className="text-lg leading-8 text-slate-600">
-          This is the starter blog index. Add Markdown files under
-          `seo/content/` and the site will automatically generate the list,
-          article pages, and prerender routes.
-        </p>
-      </div>
+type Blog = {
+  _id: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  coverImage: string;
+  author?: string;
+  createdAt: string;
+};
 
-      <div className="mt-12 grid gap-6">
-        {blogPosts.length > 0 ? (
-          blogPosts.map((post) => (
-            <article
-              key={post.slug}
-              className="rounded-3xl border border-sky-100 bg-white/90 p-6 shadow-sm shadow-sky-100/60 transition-transform duration-200 hover:-translate-y-1"
-            >
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-                {post.frontmatter.date ? <span>{post.frontmatter.date}</span> : null}
-                {post.frontmatter.tags?.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-sky-50 px-3 py-1 text-sky-700"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              <h2 className="mt-4 font-serif text-2xl text-slate-950">
-                <Link className="hover:text-sky-700" to={getBlogRoute(post.slug)}>
-                  {post.title}
-                </Link>
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                {post.description}
-              </p>
-              <Link
-                to={getBlogRoute(post.slug)}
-                className="mt-5 inline-flex text-sm font-semibold text-sky-700 underline underline-offset-4"
-              >
-                Read article
-              </Link>
-            </article>
-          ))
-        ) : (
-          <section className="rounded-[2rem] border border-dashed border-sky-200 bg-white/80 p-8">
-            <h2 className="font-serif text-2xl text-slate-950">No articles yet</h2>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              Add Markdown files under `seo/content/` and article cards will
-              appear here automatically. This keeps the starter clean by default
-              while making it easy to begin publishing content for your own SEO
-              strategy.
-            </p>
-          </section>
-        )}
-      </div>
-    </section>
-  </main>
-);
+export default function BlogIndexPage() {
+  const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default BlogIndexPage;
+  useEffect(() => {
+    const fetchBlogs = async () => {
+      try {
+        const response = await fetch('/api/blog');
+        if (!response.ok) return;
+
+        const result = await response.json();
+        setBlogs(result.data || []);
+      } catch (error) {
+        console.error('Error loading blogs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlogs();
+  }, []);
+
+  return (
+    <Layout>
+      <section className="bg-gradient-to-br from-orange-50 to-amber-50 py-16 md:py-20">
+        <div className="container mx-auto px-4 text-center max-w-3xl">
+          <span className="text-orange-600 font-semibold text-sm tracking-wide uppercase">Blog</span>
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mt-2 mb-4">
+            Stories & Updates
+          </h1>
+          <p className="text-slate-600 text-lg">
+            Read updates from our team, community work, campaigns, and impact stories.
+          </p>
+        </div>
+      </section>
+
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          {loading ? (
+            <div className="text-center text-slate-600">Loading blogs...</div>
+          ) : blogs.length === 0 ? (
+            <div className="text-center text-slate-600">No blog posts have been added yet.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {blogs.map((blog) => (
+                <Card key={blog._id} className="border-orange-100 overflow-hidden hover:shadow-lg transition-shadow">
+                  <Link to={`/blog/${blog.slug}`} className="block aspect-[4/3] bg-slate-100">
+                    <img src={blog.coverImage} alt={blog.title} className="w-full h-full object-cover" />
+                  </Link>
+                  <CardContent className="p-6">
+                    <div className="flex flex-wrap gap-3 text-xs text-slate-500 mb-3">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="w-3.5 h-3.5 text-orange-600" />
+                        {new Date(blog.createdAt).toLocaleDateString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <User className="w-3.5 h-3.5 text-orange-600" />
+                        {blog.author || 'NGO'}
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-3">
+                      <Link to={`/blog/${blog.slug}`} className="hover:text-orange-600 transition">
+                        {blog.title}
+                      </Link>
+                    </h2>
+                    <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                      {blog.excerpt || blog.content.slice(0, 150)}
+                    </p>
+                    <Link to={`/blog/${blog.slug}`} className="text-sm font-semibold text-orange-600 hover:text-orange-700">
+                      Read more
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </Layout>
+  );
+}

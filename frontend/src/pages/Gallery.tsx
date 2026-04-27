@@ -1,6 +1,7 @@
 import Layout from "@/components/Layout";
+import { useEffect, useState } from "react";
 
-const images = [
+const fallbackImages = [
   { src: "https://mgx-backend-cdn.metadl.com/generate/images/923119/2026-04-25/nj6cuhaaafla/hero-volunteers-community.png", alt: "Volunteers with community" },
   { src: "https://mgx-backend-cdn.metadl.com/generate/images/923119/2026-04-25/nj6ct6qaafnq/about-team-group.png", alt: "Team group photo" },
   { src: "https://mgx-backend-cdn.metadl.com/generate/images/923119/2026-04-25/nj6c5eiaafna/impact-healthcare.png", alt: "Blood donation camp" },
@@ -10,6 +11,31 @@ const images = [
 ];
 
 export default function Gallery() {
+  const [images, setImages] = useState(fallbackImages);
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await fetch("/api/gallery");
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (!result.data?.length) return;
+
+        setImages(
+          result.data.map((item) => ({
+            src: item.imageUrl,
+            alt: item.title || "Gallery image",
+          }))
+        );
+      } catch (error) {
+        console.error("Error loading gallery:", error);
+      }
+    };
+
+    fetchImages();
+  }, []);
+
   return (
     <Layout>
       <section className="bg-gradient-to-br from-orange-50 to-amber-50 py-16 md:py-20">
